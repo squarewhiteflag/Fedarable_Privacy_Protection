@@ -6,13 +6,117 @@ from flask import make_response
 from datetime import datetime, timedelta
 import requests
 import random
-
+import numpy as np
+import shamir_sharing as shamir
 app = Flask(__name__)
+
+#假设有了一个模型V
+V=[2,3,4,5,6,7,8]
+m=V.__len__
+k=max(V)
+n=int(random(0,m))
+A = np.matlib.rand(m,n) % k
+
 
 
 # 存储按组分的部分密钥和参与人数
-groups = {}
+groups1 = {}
+groups2 = {}
+groups3 = {}
+id1={}
+id2={}
+id3={}
+@app.route('/getA',method=['post'])
 
+def generateA():
+    return jsonify({'A':A,'m':m,'n':n})
+
+
+
+@app.route('/shamir',methods=['post'])
+def receive_partial_h():
+    round = request.get('round')
+    if round == 1:#发送客户端集合
+        client_id = request.cookies.get('user_id')  # 从cookie中获取client_id
+        if client_id is None:
+            log_behavior(0,"stranger want to get shamir")
+            return jsonify({'status': 'client_id not found in cookies'}), 400
+        log_behavior(client_id,"sent partial h")
+        h = request.json.get('h')
+        group_id = request.json.get('group_id')
+        num_members = request.json.get('num_members')
+        localurl = request.json.get('localurl')
+        if group_id not in groups1:
+            id1[group_id]=0
+            groups1[group_id] = {'members': {}, 'num_members': num_members, 'localurls': {}}
+            
+        groups1[group_id]['members'][client_id] = h
+        groups1[group_id]['members']['localurls'][client_id] = localurl
+        groups1[group_id]['members']['group_id'] = group_id
+        groups1[group_id]['members']['num_members'] = num_members
+        if client_id not in groups1[group_id]['members']['clients']:
+            groups1[group_id]['members']['clients'][id1[group_id]]=client_id
+            id1[group_id]+=1
+        if len(groups1[group_id]['members']) == groups1[group_id]['num_members']:
+            for client, url in groups1[group_id]['members']['localurls'].items():
+                send_information(url, groups1[group_id]['members'])
+            del id1[group_id]
+            del groups1[group_id]
+        
+        return jsonify({'status': 'received'})
+    if round == 2:#发送公钥集合
+        key=request.json.get('key')
+        group_id = request.json.get('group_id')
+        num_members = request.json.get('num_members')
+        localurl = request.json.get('localurl')
+        client_id= request.json.get('client_id')
+        if group_id not in groups2:
+            groups2[group_id] = {'members': {}, 'num_members': num_members, 'localurls': {}}
+        if client_id not in groups2[group_id]['members']['clients']:
+            groups2[group_id]['members']['clients'][id2[group_id]]=client_id
+            id2[group_id]+=1
+        groups2[group_id]['members'][client_id] = key
+        groups2[group_id]['localurls'][client_id] = localurl
+        groups2[group_id]['members']['group_id'] = group_id
+        groups2[group_id]['members']['num_members'] = num_members
+        if len(groups2[group_id]['members']) == groups2[group_id]['num_members']:
+            for client, url in groups2[group_id]['localurls'].items():
+                send_information(url, groups2[group_id]['members'])
+            del groups2[group_id]
+            del id2[group_id]
+        
+        return jsonify({'status': 'round2'})
+    if round == 3:#发送加密s集合和客户端id、对应的网址
+        keys=request.json.get('s_send')
+        group_id = request.json.get('group_id')
+        num_members = request.json.get('num_members')
+        localurl = request.json.get('localurl')
+        client_id= request.json.get('client_id')
+        if group_id not in groups2:
+            groups2[group_id] = {'members': {}, 'num_members': num_members, 'localurls': {}}
+        if client_id not in groups2[group_id]['members']['clients']:
+            groups2[group_id]['members']['clients'][id2[group_id]]=client_id
+            id2[group_id]+=1
+
+        groups2[group_id]['members'][client_id] = keys
+        groups2[group_id]['localurls'][client_id] = localurl
+        groups2[group_id]['members']['group_id'] = group_id
+        groups2[group_id]['members']['num_members'] = num_members
+        if len(groups2[group_id]['members']) == groups2[group_id]['num_members']:
+            for client, url in groups2[group_id]['localurls'].items():
+                send_information(url, groups2[group_id]['members'])
+            del groups2[group_id]
+            del id2[group_id]
+        
+        return jsonify({'status': 'round3'})
+    if round == 4:#发送加密s集合和客户端id、对应的网址
+        messages=request.json.get('s_send')
+        result = shamir.reconstruct_array(list(messages.values()))
+        succeed(result   = [int(x) for x in result])
+        return jsonify({'status': 'finish'})
+
+###
+'''
 @app.route('/send_partial_key', methods=['POST'])
 def receive_partial_key():
     client_id = request.cookies.get('user_id')  # 从cookie中获取client_id
@@ -36,6 +140,9 @@ def receive_partial_key():
         del groups[group_id]
     
     return jsonify({'status': 'received'})
+###
+'''
+
 
 url1='http://localhost:5001/receive_information'
 
@@ -100,6 +207,12 @@ def log_behavior(id, behavior):
     with open('log.txt', 'a') as f:
         f.write(f"{datetime.now()}: ID {id} {behavior}\n")
 
+def succeed( result, dropouts):
+    global total
+    global total_dropouts
+    total = result
+    total_dropouts = dropouts
+    failure = 0
 
 def send_information(url1,data):
     
