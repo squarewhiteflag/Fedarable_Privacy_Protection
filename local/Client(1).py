@@ -4,8 +4,44 @@ import hashlib
 from requests.exceptions import Timeout
 import json
 import random
+import numpy as np
+
 response = None 
 URL = "http://localhost:5000/"
+
+#假设已经有了一个梯度V
+V=[1,2,3,4,5,6,7]
+
+def get_A(url):
+    global A,m,n
+    response=response.post(url+'/getA')
+    A=response['A']
+    m=response['m']
+    n=response['n']
+
+    
+def generate_A(group_id,num_members,localurl,url):
+
+    e = random.normal(size = m,loc = 1, scale = 1)
+    k=max(V)
+    s = np.matlib.rand(n) % k
+    b = A @ s + e #矩阵A*密钥s+误差向量e
+    h = V + b   #h=向量v+b 添加噪声
+    url+='/shamir'
+    response = requests.post(url,json={
+        'h':h,
+        'group_id': group_id,
+        'num_members': num_members,
+        'localurl':localurl+'/shamir1',
+        'round':int(1)})
+    with open('shamirS.json', 'w') as f:
+        json.dump({
+            's':s,
+            'group_id': group_id,
+            'num_members': num_members,
+            'localurl':localurl            
+            }, f)
+    print(response)
 
 def send_information_to_server(url, data):
     # url是服务器地址，data是要发送的信息
@@ -52,8 +88,8 @@ def login(url):
     print(response)
     
 
-
-def DH(p,g,localurl,group_id,num_members,cookies):
+'''
+def DH(p,g,localurl,group_id,num_members,cookies):#废弃内容
  
 
     # 客户端生成自己的密钥对
@@ -75,7 +111,7 @@ def DH(p,g,localurl,group_id,num_members,cookies):
     return private_key
 
 
-def compute_shared_secret(p, local_private_key):
+def compute_shared_secret(p, local_private_key):#废弃内容
     # 从名为'DH'的文件中读取部分密钥
     with open('DH.json', 'r') as f:
         other_partial_keys = json.load(f)
@@ -83,10 +119,12 @@ def compute_shared_secret(p, local_private_key):
     shared_secret = 1
     for  client_id, partial_key in other_partial_keys.items():
         # 使用每个客户端的部分密钥来计算共享密钥
-        partial_shared_secret = pow(int(partial_key), local_private_key, p)
-        shared_secret = (shared_secret * partial_shared_secret) % p
+        if client_id != response.cookies.get('user_id'):
+            partial_shared_secret = pow(int(partial_key), local_private_key, p)
+            shared_secret = shared_secret * partial_shared_secret
+    shared_secret = shared_secret % p
     return shared_secret
-
+'''
 def main():
     url = "http://localhost:5000/" #服务器端网址
     localurl = "http://localhost:5001/"#本地网址
@@ -103,6 +141,7 @@ def main():
             register(url)
         elif choice == '2':
             login(url)
+
         elif choice == '3':
             p=int(input('p?'))
             private_key=DH(p,int(input('g?')),localurl+'/DH',int(input('groupid')),int(input('groupnum')),cookies=response.cookies)
