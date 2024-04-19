@@ -1,0 +1,11 @@
+2024-03-06 22:02:13.594058: ID 1 registed
+2024-03-06 22:02:30.933828: ID 1 logged in
+2024-03-06 22:02:32.968101: ID 0 sent message tohttp://localhost:5001/receive_information
+2024-03-06 22:05:21.713062: ID 2 registed
+2024-03-06 22:05:32.157354: ID 0 sent message tohttp://localhost:5001/receive_information
+2024-03-06 23:54:42.692653: ID 3 registed
+2024-03-06 23:54:57.232899: ID 0 sent message tohttp://localhost:5001/receive_information
+2024-03-06 23:55:09.333103: ID 0 sent message tohttp://localhost:5001/receive_information
+2024-04-18 16:15:09.393955: ID 4 registed
+2024-04-19 16:40:04.229587: ID 5 registed
+2024-04-19 16:40:10.339797: ID 5 logged in
